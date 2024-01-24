@@ -1,0 +1,217 @@
+<!doctype html>
+<html>
+<head>
+    <title>Výsledky porovnání podtácků</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            font-size: 50px; /* Zvětšení písma */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        @media (max-width: 400px) {
+            body {
+                font-size: 16px;
+            }
+        }
+        .header, .uploaded-images, .results-container {
+            width: 90%; /* Zvětšení šířky */
+            max-width: 1000px; /* Zvětšení maximální šířky */
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .container {
+            background-color: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            margin: 10px;
+            flex: 1; 
+        }
+        .results-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+        .images img {
+            max-width: 100%;
+            max-height: 250px; /* Zvětšení velikosti obrázků */
+            margin: 0 10px;
+        }
+
+        .buttons{
+            flex-direction: row;
+            align-items: center;
+        }
+
+        button {
+            background-color: red;
+            color: white;
+            border: none;
+            padding: 12px 24px; /* Zvětšení tlačítka */
+            border-radius: 5px;
+            cursor: pointer;
+            margin-bottom: 20px;
+            font-size: 50px; /* Zvětšení textu tlačítka */
+        }
+        button:hover {
+            background-color: darkred;
+        }
+        @media (max-width: 300px) {
+            /* Kontejnery pod sebou na menších obrazovkách */
+            .results-container {
+                flex-direction: row;
+                align-items: center;
+            }
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script>
+    // Funkce pro provedení AJAX požadavku na procesování obrázků
+    function startImageProcessing() {
+        $('.buttons, .results-container, .uploaded-images, h2').hide();
+    $.ajax({
+        url: "/process",
+        type: "POST",
+        success: function (data) {
+            // Clear existing content
+            $('.uploaded-images').empty();
+            $('.container').empty();
+            clearInterval(statusInterval); // Stop the interval
+                $('.processing-status').hide(); // Hide the status container
+                $('.buttons, .results-container, .uploaded-images, h2').show();
+
+            // Display uploaded images
+            if (data.uploaded_images.length > 0) {
+                $('.uploaded-images').append('<h2>Nově nahraný podtácek</h2>');
+                data.uploaded_images.forEach(function (image_base64) {
+                    $('.uploaded-images').append('<img src="data:image/png;base64,' + image_base64 + '" alt="Nahraný obrázek" style="max-width: 400px; margin: 10px;">');
+                });
+            }
+
+            // Display similar images for the first image
+            if (data.similarities.length > 0) {
+                var container1 = $('.results-container').children().eq(0); // Select the first container
+                container1.append('<h3>Podobné podtácky 1:</h3><ul>');
+                data.similarities.forEach(function (item) {
+                    var similarity = item[0];
+                    var path = item[1];
+                    var image_base64 = item[2];
+                    container1.append('<li>' + similarity.toFixed(2) + '% shoda - ' + path + '<br><img src="data:image/png;base64,' + image_base64 + '" alt="Obrázek" style="max-width: 200px;"><br></li>');
+                });
+                container1.append('</ul>');
+            } else {
+                $('.results-container').children().eq(0).append('<h3>Podobné podtácky 1:</h3><p>Žádné podobné podtácky nebyly nalezeny.</p>');
+            }
+
+            // Display similar images for the second image
+            if (data.similarities2.length > 0) {
+                var container2 = $('.results-container').children().eq(1); // Select the second container
+                container2.append('<h3>Podobné podtácky 2:</h3><ul>');
+                data.similarities2.forEach(function (item) {
+                    var similarity = item[0];
+                    var path = item[1];
+                    var image_base64 = item[2];
+                    container2.append('<li>' + similarity.toFixed(2) + '% shoda - ' + path + '<br><img src="data:image/png;base64,' + image_base64 + '" alt="Obrázek" style="max-width: 200px;"><br></li>');
+                });
+                container2.append('</ul>');
+            } else {
+                $('.results-container').children().eq(1).append('<h3>Podobné podtácky 2:</h3><p>Žádné podobné podtácky nebyly nalezeny.</p>');
+            }
+        },
+        error: function () {
+            alert("Chyba při zpracování obrázků.");
+        }
+    });
+}
+
+    // Po načtení stránky spustit procesování automaticky
+    $(document).ready(function () {
+        startImageProcessing();
+    });
+
+
+    function updateProcessingStatus() {
+    $.ajax({
+        url: "/getStatus",
+        type: "GET",
+        success: function (data) {
+            var statusText1 = data.picture1 ? data.picture1 : 'Status neznámý';
+            var statusText2 = data.picture2 ? data.picture2 : 'Status neznámý';
+
+            $('#status-picture1').text('Obrázek 1: ' + statusText1);
+            $('#status-picture2').text('Obrázek 2: ' + statusText2);
+
+            /*if (data.picture1 && data.picture2) {
+                // Both pictures are processed
+                clearInterval(statusInterval); // Stop the interval
+                $('.processing-status').hide(); // Hide the status container
+                $('.buttons, .results-container').show(); // Show the buttons and results containers
+                startImageProcessing(); // Start the final image processing
+            }*/
+        },
+        error: function () {
+            alert("Chyba při získávání stavu zpracování obrázků.");
+        }
+    });
+}
+
+var statusInterval = setInterval(updateProcessingStatus, 500); // Check the status every second
+</script>
+</head>
+<body>
+<div class="header">
+    <h1>Výsledky porovnání podtácků</h1>
+</div>
+
+<div class="processing-status">
+    <h3>Zpracování obrázků</h3>
+    <p id="status-picture1">Obrázek 1: Nahrávám...</p>
+    <p id="status-picture2">Obrázek 2: Nahrávám...</p>
+</div>
+    
+<div class="buttons">
+    <a href="/"><button>Uložit podtácek</button></a>
+    <a href="/delete"><button>Vymazat podtácek</button></a>
+</div>
+    <div class="uploaded-images">
+        <h2>Nově nahraný podtácek</h2>
+        {% if uploaded_images %}
+            {% for image_base64 in uploaded_images %}
+                <img src="data:image/png;base64,{{ image_base64 }}" alt="Nahraný obrázek" style="max-width: 400px; margin: 10px;">
+            {% endfor %}
+        {% endif %}
+    </div>
+    <div class="results-container">
+    <div class="container">
+        <h3>Podobné podtácky 1:</h3>
+        {% if similarities %}
+        <ul>
+            {% for similarity, path, image_base64 in similarities %}
+            <li>{{ similarity|round(2) }}% shoda - {{ path }}<br>
+            <img src="data:image/png;base64,{{ image_base64 }}" alt="Obrázek" style="max-width: 200px;"><br></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>Žádné podobné podtácky nebyly nalezeny.</p>
+        {% endif %}
+    </div>
+    <div class="container">
+        <h3>Podobné podtácky 2:</h3>
+        {% if similarities2 %}
+        <ul>
+            {% for similarity, path, image_base64 in similarities2 %}
+            <li>{{ similarity|round(2) }}% shoda - {{ path }}<br>
+            <img src="data:image/png;base64,{{ image_base64 }}" alt="Obrázek" style="max-width: 200px;"><br></li>
+            {% endfor %}
+        </ul>
+        {% else %}
+        <p>Žádné podobné podtácky nebyly nalezeny.</p>
+        {% endif %}
+    </div>
+</div>
+
+</body>
+</html>
