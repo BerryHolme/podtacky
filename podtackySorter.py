@@ -13,8 +13,11 @@ from tqdm import tqdm
 import shutil
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
+from werkzeug.datastructures import FileStorage
 
 
+UPLOAD_FOLDER = 'Library'
+TEMP_FOLDER = 'temp'
 
 app = Flask(__name__)
 
@@ -24,7 +27,7 @@ app.config["SESSION_TYPE"] = "filesystem"
 Session(app) 
 
 
-UPLOAD_FOLDER = 'Library'
+
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 HTML = '''
@@ -319,67 +322,88 @@ def get_next_folder_name():
 @app.route('/', methods=['GET', 'POST'])
 def upload_file():
     message = None
-    similarities = []
-    similarities2 = []
     if request.method == 'POST':
         file1 = request.files['file1']
         file2 = request.files['file2']
 
-        next_folder_name = get_next_folder_name()
-        next_folder = os.path.join(UPLOAD_FOLDER, next_folder_name)
-        os.makedirs(next_folder, exist_ok=True)
-
-        def process_image(file, index):
-            print("Konvertuju...")
-            image = Image.open(file.stream)
-            image = image.convert('RGB')  # Odstranění alfa kanálu pro PNG
-            file_path = os.path.join(next_folder, f'{index}.png')
-            image.save(file_path, 'PNG', quality=95, optimize=True, exif='')
-
-            
-            print("Odstraňuju pozadí...")
-            # Odstranění pozadí pomocí rembg
-            with open(file_path, 'rb') as img_file:
-                input_image = img_file.read()
-            output_image = remove(input_image)
-            with open(file_path, 'wb') as f:
-                f.write(output_image)
-
-            return file_path, image_to_base64(file_path)
+        if file1 and file2:
+            file1.save(os.path.join(TEMP_FOLDER, '1' + os.path.splitext(file1.filename)[1]))
+            file2.save(os.path.join(TEMP_FOLDER, '2' + os.path.splitext(file2.filename)[1]))
 
 
-        uploaded_files_paths = []
-        uploaded_files_base64 = []
+        return redirect(url_for('process'))
 
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(process_image, file1, 1)
-            future2 = executor.submit(process_image, file2, 2)
-            result1 = future1.result()
-            result2 = future2.result()
-            uploaded_files_paths.append(result1[0])
-            uploaded_files_base64.append(result1[1])
-            uploaded_files_paths.append(result2[0])
-            uploaded_files_base64.append(result2[1])
-
-        # Paralelní hledání podobných obrázků
-        with ProcessPoolExecutor(max_workers=2) as executor:
-            future1 = executor.submit(find_similar_images, uploaded_files_paths[0])
-            future2 = executor.submit(find_similar_images, uploaded_files_paths[1])
-            similarities = future1.result()
-            similarities2 = future2.result()
-
-        print("Dokončeno")
-
-        message = 'Soubory byly úspěšně nahrány'
-        if similarities:
-            message += ' a nalezeny podobné obrázky'
-
-        session['uploaded_images'] = uploaded_files_base64
-        session['similarities'] = similarities
-        session['similarities2'] = similarities2
-        return redirect(url_for('results'))
     
     return render_template_string(HTML)
+
+@app.route('/process')
+def process():
+    render_template_string(PROCESS_HTML)
+    similarities = []
+    similarities2 = []
+    next_folder_name = get_next_folder_name()
+    next_folder = os.path.join(UPLOAD_FOLDER, next_folder_name)
+    os.makedirs(next_folder, exist_ok=True)
+
+    file1_path = os.path.join(TEMP_FOLDER, '1.jpg')
+    file2_path = os.path.join(TEMP_FOLDER, '2.jpg')
+
+
+    file1 = FileStorage(stream=open(file1_path, 'rb'), filename='file1')
+    file2 = FileStorage(stream=open(file2_path, 'rb'), filename='file2')
+
+    def process_image(file, index):
+        print("Konvertuju...")
+        image = Image.open(file.stream)
+        image = image.convert('RGB')  # Odstranění alfa kanálu pro PNG
+        file_path = os.path.join(next_folder, f'{index}.png')
+        image.save(file_path, 'PNG', quality=95, optimize=True, exif='')
+
+        
+        print("Odstraňuju pozadí...")
+        # Odstranění pozadí pomocí rembg
+        with open(file_path, 'rb') as img_file:
+            input_image = img_file.read()
+        output_image = remove(input_image)
+        with open(file_path, 'wb') as f:
+            f.write(output_image)
+
+        return file_path, image_to_base64(file_path)
+
+
+    uploaded_files_paths = []
+    uploaded_files_base64 = []
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        future1 = executor.submit(process_image, file1, 1)
+        future2 = executor.submit(process_image, file2, 2)
+        result1 = future1.result()
+        result2 = future2.result()
+        uploaded_files_paths.append(result1[0])
+        uploaded_files_base64.append(result1[1])
+        uploaded_files_paths.append(result2[0])
+        uploaded_files_base64.append(result2[1])
+
+    # Paralelní hledání podobných obrázků
+    with ProcessPoolExecutor(max_workers=2) as executor:
+        future1 = executor.submit(find_similar_images, uploaded_files_paths[0])
+        future2 = executor.submit(find_similar_images, uploaded_files_paths[1])
+        similarities = future1.result()
+        similarities2 = future2.result()
+
+    print("Dokončeno")
+
+    message = 'Soubory byly úspěšně nahrány'
+    if similarities:
+        message += ' a nalezeny podobné obrázky'
+
+    session['uploaded_images'] = uploaded_files_base64
+    session['similarities'] = similarities
+    session['similarities2'] = similarities2
+    return redirect(url_for('results'))
+
+
+
 
 @app.route('/results')
 def results():
