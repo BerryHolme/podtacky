@@ -104,7 +104,7 @@ def process():
 
         print("Odstraňuju pozadí...")
         with status_lock:
-            processing_status[f"picture{index}"] = "Odstraňuju pozadí"
+            processing_status[f"picture{index}"] = "Odstraňuju pozadí..."
 
         # Odstranění pozadí pomocí rembg
         with open(file_path, 'rb') as img_file:
@@ -146,7 +146,7 @@ def process():
         
     with status_lock:
         processing_status["picture1"] = "Posílám..."
-        processing_status["picture1"] = "Posílám..."
+        processing_status["picture2"] = "Posílám..."
 
     session['uploaded_images'] = uploaded_files_base64
     session['similarities'] = similarities
