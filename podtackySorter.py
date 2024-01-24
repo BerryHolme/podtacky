@@ -14,6 +14,7 @@ import shutil
 from concurrent.futures import ProcessPoolExecutor
 from concurrent.futures import ThreadPoolExecutor
 from werkzeug.datastructures import FileStorage
+import asyncio
 
 
 UPLOAD_FOLDER = 'Library'
@@ -229,6 +230,7 @@ PROCESS_HTML = '''
 <html>
 <head>
     <title>Probíhá proces obrázků</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -294,6 +296,29 @@ PROCESS_HTML = '''
             }
         }
     </style>
+
+    <script>
+    // Funkce pro provedení AJAX požadavku na procesování obrázků
+    function startImageProcessing() {
+        $.ajax({
+            url: "/process", // URL pro procesování
+            type: "POST",
+            success: function (data) {
+                // Po úspěšném zpracování přesměrování na stránku s výsledky
+                window.location.href = "/results";
+            },
+            error: function () {
+                alert("Chyba při zpracování obrázků.");
+            }
+        });
+    }
+
+    // Po načtení stránky spustit procesování automaticky
+    $(document).ready(function () {
+        startImageProcessing();
+    });
+</script>
+
 </head>
 <body>
     <div class="header">
@@ -331,14 +356,17 @@ def upload_file():
             file2.save(os.path.join(TEMP_FOLDER, '2' + os.path.splitext(file2.filename)[1]))
 
 
-        return redirect(url_for('process'))
+        return redirect(url_for('process_page'))
 
     
     return render_template_string(HTML)
 
-@app.route('/process')
+@app.route('/process_page', methods=['GET'])
+def process_page():
+    return render_template_string(PROCESS_HTML)
+
+@app.route('/process', methods=['POST'])
 def process():
-    render_template_string(PROCESS_HTML)
     similarities = []
     similarities2 = []
     next_folder_name = get_next_folder_name()
@@ -347,7 +375,6 @@ def process():
 
     file1_path = os.path.join(TEMP_FOLDER, '1.jpg')
     file2_path = os.path.join(TEMP_FOLDER, '2.jpg')
-
 
     file1 = FileStorage(stream=open(file1_path, 'rb'), filename='file1')
     file2 = FileStorage(stream=open(file2_path, 'rb'), filename='file2')
@@ -359,7 +386,6 @@ def process():
         file_path = os.path.join(next_folder, f'{index}.png')
         image.save(file_path, 'PNG', quality=95, optimize=True, exif='')
 
-        
         print("Odstraňuju pozadí...")
         # Odstranění pozadí pomocí rembg
         with open(file_path, 'rb') as img_file:
@@ -369,7 +395,6 @@ def process():
             f.write(output_image)
 
         return file_path, image_to_base64(file_path)
-
 
     uploaded_files_paths = []
     uploaded_files_base64 = []
@@ -400,7 +425,7 @@ def process():
     session['uploaded_images'] = uploaded_files_base64
     session['similarities'] = similarities
     session['similarities2'] = similarities2
-    return redirect(url_for('results'))
+    return "success"  # Návratová hodnota pro AJAX požadavek
 
 
 
