@@ -180,7 +180,7 @@ RESULTS_HTML = '''
     <a href="/delete"><button>Vymazat podtácek</button></a>
 </div>
     <div class="uploaded-images">
-        <h2>Nově nahrané podtácky</h2>
+        <h2>Nově nahraný podtácek</h2>
         {% if uploaded_images %}
             {% for image_base64 in uploaded_images %}
                 <img src="data:image/png;base64,{{ image_base64 }}" alt="Nahraný obrázek" style="max-width: 400px; margin: 10px;">
@@ -330,14 +330,23 @@ def upload_file():
         os.makedirs(next_folder, exist_ok=True)
 
         def process_image(file, index):
-            print ("Konverze obrázků...")
+            print("Konvertuju...")
             image = Image.open(file.stream)
             image = image.convert('RGB')  # Odstranění alfa kanálu pro PNG
             file_path = os.path.join(next_folder, f'{index}.png')
             image.save(file_path, 'PNG', quality=95, optimize=True, exif='')
 
+            
+            print("Odstraňuju pozadí...")
+            # Odstranění pozadí pomocí rembg
+            with open(file_path, 'rb') as img_file:
+                input_image = img_file.read()
+            output_image = remove(input_image)
+            with open(file_path, 'wb') as f:
+                f.write(output_image)
 
             return file_path, image_to_base64(file_path)
+
 
         uploaded_files_paths = []
         uploaded_files_base64 = []
@@ -412,7 +421,7 @@ def find_similar_images(new_image_path):
         new_image_data = cv2.imread(new_image_path)
         existing_image_data = cv2.imread(file_path)
         similarity = calculate_similarity(new_image_data, existing_image_data)
-        if similarity > 0.95:
+        if similarity > 0.998:
             relative_path = os.path.relpath(file_path, UPLOAD_FOLDER)
             image_base64 = image_to_base64(file_path)
             similarities.append((similarity*100, file_path, image_base64))
