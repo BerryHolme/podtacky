@@ -1,4 +1,5 @@
 import os
+import PIL
 import tensorflow as tf
 from tensorflow.keras import layers, models
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
@@ -15,8 +16,19 @@ train_datagen = ImageDataGenerator(rescale=1./255, rotation_range=40, width_shif
 test_datagen = ImageDataGenerator(rescale=1./255)
 
 # Tok trénovacích a validačních dat
-train_generator = train_datagen.flow_from_directory(train_dir, target_size=(150, 150), batch_size=32, class_mode='categorical')
-test_generator = test_datagen.flow_from_directory(test_dir, target_size=(150, 150), batch_size=32, class_mode='categorical')
+train_generator = train_datagen.flow_from_directory(
+    train_dir, 
+    target_size=(400, 300), 
+    batch_size=32, 
+    class_mode='categorical'
+)
+test_generator = test_datagen.flow_from_directory(
+    test_dir, 
+    target_size=(400, 300),
+    batch_size=32, 
+    class_mode='categorical'
+)
+
 
 # Definování modelu
 model = models.Sequential([
@@ -35,4 +47,11 @@ model = models.Sequential([
 model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
 
 # Trénink modelu
-history = model.fit(train_generator, steps_per_epoch=100, epochs=30, validation_data=test_generator, validation_steps=50)
+history = model.fit(
+    train_generator, 
+    steps_per_epoch=train_generator.samples // train_generator.batch_size,  # Dynamicky vypočítáno
+    epochs=30, 
+    validation_data=test_generator, 
+    validation_steps=test_generator.samples // test_generator.batch_size  # Dynamicky vypočítáno
+)
+
