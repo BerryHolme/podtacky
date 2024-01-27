@@ -234,13 +234,13 @@ def find_similar_images(new_image_path):
         #existing_image_data = cv2.imread(file_path) 
 
         similarity = calculate_similarity(hist1, file_path)
-        if similarity > 0.998:
+        if similarity > 0.999:
             relative_path = os.path.relpath(file_path, UPLOAD_FOLDER)
             image_base64 = image_to_base64_resized(file_path)
             similarities.append((similarity*100, file_path, image_base64))
 
     similarities = sorted(similarities, key=lambda x: x[0], reverse=True)
-    
+
     with status_lock:
         processing_status[f"picture{image_index}"] = "Dokončeno"
 
