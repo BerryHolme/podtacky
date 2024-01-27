@@ -125,9 +125,9 @@ def process():
         result1 = future1.result()
         result2 = future2.result()
         uploaded_files_paths.append(result1[0])
-        uploaded_files_base64.append(result1[1])
+        uploaded_files_base64.append(image_to_base64_resized(result1[0]))
         uploaded_files_paths.append(result2[0])
-        uploaded_files_base64.append(result2[1])
+        uploaded_files_base64.append(image_to_base64_resized(result2[0]))
 
     # Paralelní hledání podobných obrázků
     with ThreadPoolExecutor(max_workers=2) as executor:
@@ -139,6 +139,8 @@ def process():
 
     print("Dokončeno")
 
+
+
     message = 'Soubory byly úspěšně nahrány'
     if similarities:
         message += ' a nalezeny podobné obrázky'
@@ -148,23 +150,13 @@ def process():
         processing_status["picture1"] = "Posílám..."
         processing_status["picture2"] = "Posílám..."
 
-    #session['uploaded_images'] = uploaded_files_base64
-    #session['similarities'] = similarities
-    #session['similarities2'] = similarities2
-    
-    #data = {
-    #    'uploaded_images': session.get('uploaded_images', []),
-    #    'similarities': session.get('similarities', []),
-    #    'similarities2': session.get('similarities2', [])
-    #}
-
     data = {
         'uploaded_images': uploaded_files_base64,
         'similarities': similarities,
         'similarities2':similarities2
     }
 
-    return jsonify(data)  # Return JSON response with data
+    return jsonify(data) 
 
 
 @app.route('/getStatus', methods=['GET'])
@@ -232,13 +224,21 @@ def find_similar_images(new_image_path):
         similarity = calculate_similarity(hist1, file_path)
         if similarity > 0.998:
             relative_path = os.path.relpath(file_path, UPLOAD_FOLDER)
-            image_base64 = image_to_base64(file_path)
+            image_base64 = image_to_base64_resized(file_path)
             similarities.append((similarity*100, file_path, image_base64))
 
     with status_lock:
         processing_status[f"picture{image_index}"] = "Dokončeno"
 
     return similarities
+
+def image_to_base64_resized(image_path, scale_factor=0.2):
+    image = Image.open(image_path)
+    # Zmenšení obrázku
+    resized_image = image.resize((int(image.width * scale_factor), int(image.height * scale_factor)), Image.ANTIALIAS)
+    buffered = io.BytesIO()
+    resized_image.save(buffered, format="PNG")
+    return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 
 
