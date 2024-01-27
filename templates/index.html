@@ -21,6 +21,7 @@
             
             font-size: 50px;
         }
+
         input[type=file], input[type=submit] {
             margin-bottom: 10px;
             width: 100%;
@@ -53,6 +54,26 @@
             }
         }
     </style>
+     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+     <script>
+        function updateProcessingStatus() {
+            $.ajax({
+                url: "/getNumber",
+                type: "GET",
+                success: function (data) {
+                    var number = data.number ? data.number : 'Status neznámý';
+                    $('.text').text('Současný počet podtácků: ' + number);
+                },
+                error: function () {
+                    alert("Chyba při získávání počtu podtácků");
+                }
+            });
+        }
+
+        $(document).ready(function () {
+        updateProcessingStatus();
+    });
+        </script>
 </head>
 <body>
 <div class="container">
@@ -64,7 +85,8 @@
         <input type="file" name="file1" required><br><br>
         <input type="file" name="file2" required><br><br>
         <input type="submit" value="Nahrát">
-    </form>
+    </form><br>
+    <div class="text"></div>
 </div>
 </body>
 </html>

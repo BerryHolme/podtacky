@@ -37,7 +37,19 @@ Session(app)
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
+@app.route('/getNumber', methods=['GET'])
+def getNumber():
+    number = 0
+    for folder in os.listdir(UPLOAD_FOLDER):
+        if folder.isdigit():
+            number += 1
+            
+    number = max(number, int(folder))
+    data = {
+        'number': number
+    }
 
+    return jsonify(data) 
 
 def image_to_base64(image_path):
     with open(image_path, "rb") as image_file:
