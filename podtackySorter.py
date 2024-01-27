@@ -148,14 +148,20 @@ def process():
         processing_status["picture1"] = "Posílám..."
         processing_status["picture2"] = "Posílám..."
 
-    session['uploaded_images'] = uploaded_files_base64
-    session['similarities'] = similarities
-    session['similarities2'] = similarities2
+    #session['uploaded_images'] = uploaded_files_base64
+    #session['similarities'] = similarities
+    #session['similarities2'] = similarities2
     
+    #data = {
+    #    'uploaded_images': session.get('uploaded_images', []),
+    #    'similarities': session.get('similarities', []),
+    #    'similarities2': session.get('similarities2', [])
+    #}
+
     data = {
-        'uploaded_images': session.get('uploaded_images', []),
-        'similarities': session.get('similarities', []),
-        'similarities2': session.get('similarities2', [])
+        'uploaded_images': uploaded_files_base64,
+        'similarities': similarities,
+        'similarities2':similarities2
     }
 
     return jsonify(data)  # Return JSON response with data
@@ -169,22 +175,32 @@ def getStatus():
 
 
 
-def calculate_similarity(image1, image2):
-    # Převod na šedotónové
-    gray1 = cv2.cvtColor(image1, cv2.COLOR_BGR2GRAY)
-    gray2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
 
-    # Výpočet histogramu
-    hist1 = cv2.calcHist([gray1], [0], None, [256], [0, 256])
-    hist2 = cv2.calcHist([gray2], [0], None, [256], [0, 256])
+def calculate_similarity(hist1, file_path):
+    # Check if the histogram file for the second image exists
+    hist_file = os.path.splitext(file_path)[0] + '.hist.npy'
+    
+    if os.path.exists(hist_file):
+        # Load the histogram from the file
+        hist2 = np.load(hist_file)
+    else:
+        # Read the second image
+        image2 = cv2.imread(file_path)
+        gray2 = cv2.cvtColor(image2, cv2.COLOR_BGR2GRAY)
 
-    # Normalizace histogramu
-    hist1 = cv2.normalize(hist1, hist1).flatten()
-    hist2 = cv2.normalize(hist2, hist2).flatten()
+        # Calculate the histogram
+        hist2 = cv2.calcHist([gray2], [0], None, [256], [0, 256])
 
-    # Výpočet podobnosti
+        # Normalize the histogram
+        hist2 = cv2.normalize(hist2, hist2).flatten()
+
+        # Save the histogram to a file
+        np.save(hist_file, hist2)
+
+    # Calculate the cosine similarity
     similarity = cosine_similarity([hist1], [hist2])
     return similarity[0][0]
+
 
 def find_similar_images(new_image_path):
     global processing_status
@@ -196,6 +212,11 @@ def find_similar_images(new_image_path):
 
     total_files = len(all_files)
     processed_files = 0
+
+    new_image_data = cv2.imread(new_image_path)
+    gray1 = cv2.cvtColor(new_image_data, cv2.COLOR_BGR2GRAY)
+    hist1 = cv2.calcHist([gray1], [0], None, [256], [0, 256])
+    hist1 = cv2.normalize(hist1, hist1).flatten()
     
     for file_path in all_files:
         if file_path == new_image_path or os.path.dirname(file_path) == new_image_folder:
@@ -206,9 +227,9 @@ def find_similar_images(new_image_path):
         with status_lock:
             processing_status[f"picture{image_index}"] = f"Zpracovávám {processed_files}/{total_files} souborů ({progress:.2f}%)"
 
-        new_image_data = cv2.imread(new_image_path)
-        existing_image_data = cv2.imread(file_path)
-        similarity = calculate_similarity(new_image_data, existing_image_data)
+        #existing_image_data = cv2.imread(file_path) 
+
+        similarity = calculate_similarity(hist1, file_path)
         if similarity > 0.998:
             relative_path = os.path.relpath(file_path, UPLOAD_FOLDER)
             image_base64 = image_to_base64(file_path)

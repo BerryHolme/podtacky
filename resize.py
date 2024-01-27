@@ -5,7 +5,7 @@ from tqdm import tqdm
 
 def resize_image(image_path, new_size=(400, 300)):
     with Image.open(image_path) as img:
-        resized_img = img.resize(new_size, Image.ANTIALIAS)
+        resized_img = img.resize(new_size)
         resized_img.save(image_path)
 
 def process_images(directory):
@@ -19,5 +19,5 @@ def process_images(directory):
         list(tqdm(executor.map(resize_image, images), total=len(images)))
 
 # Příklad použití
-directory_path = 'dataset/train'  # Nahraďte cestou k vašemu adresáři se složkami obsahujícími obrázky
+directory_path = 'dataset/test'  # Nahraďte cestou k vašemu adresáři se složkami obsahujícími obrázky
 process_images(directory_path)

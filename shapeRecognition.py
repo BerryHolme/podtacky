@@ -40,7 +40,7 @@ model = models.Sequential([
     layers.MaxPooling2D((2, 2)),
     layers.Flatten(),
     layers.Dense(512, activation='relu'),
-    layers.Dense(3, activation='softmax')  # Výstup pro 3 třídy: Circle, Square, Hexagon
+    layers.Dense(2, activation='softmax')  # Výstup pro 3 třídy: Circle, Square,
 ])
 
 # Kompilace modelu
@@ -50,8 +50,9 @@ model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accur
 history = model.fit(
     train_generator, 
     steps_per_epoch=train_generator.samples // train_generator.batch_size,  # Dynamicky vypočítáno
-    epochs=30, 
+    epochs=40, 
     validation_data=test_generator, 
     validation_steps=test_generator.samples // test_generator.batch_size  # Dynamicky vypočítáno
 )
+model.save('models/shapereg.model.h5')
 
