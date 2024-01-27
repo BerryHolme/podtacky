@@ -239,18 +239,36 @@ def find_similar_images(new_image_path):
             image_base64 = image_to_base64_resized(file_path)
             similarities.append((similarity*100, file_path, image_base64))
 
+    similarities = sorted(similarities, key=lambda x: x[0], reverse=True)
+    
     with status_lock:
         processing_status[f"picture{image_index}"] = "Dokončeno"
 
     return similarities
 
+import os
+
 def image_to_base64_resized(image_path, scale_factor=0.2):
+    base64_file = os.path.splitext(image_path)[0] + '.base64'
+
+    # Kontrola, zda již existuje base64 soubor
+    if os.path.exists(base64_file):
+        with open(base64_file, 'r') as file:
+            return file.read()
+
+    # Zmenšení a konverze obrázku, pokud base64 soubor neexistuje
     image = Image.open(image_path)
-    # Zmenšení obrázku
     resized_image = image.resize((int(image.width * scale_factor), int(image.height * scale_factor)), Image.ANTIALIAS)
     buffered = io.BytesIO()
     resized_image.save(buffered, format="PNG")
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
+    base64_data = base64.b64encode(buffered.getvalue()).decode('utf-8')
+
+    # Uložení base64 reprezentace do souboru
+    with open(base64_file, 'w') as file:
+        file.write(base64_data)
+
+    return base64_data
+
 
 
 
