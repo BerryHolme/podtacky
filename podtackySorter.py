@@ -19,7 +19,7 @@ import asyncio
 from flask import jsonify
 from threading import Lock
 
-processing_status = {"picture1": "Nahrávání...", "picture2": "Nahrávání..."}
+processing_status = {"status":"0", "picture1": "Nahrávání...", "picture2": "Nahrávání..."}
 status_lock = Lock()
 
 
@@ -89,6 +89,7 @@ def process_page():
 @app.route('/process', methods=['POST'])
 def process():
     with status_lock:
+        processing_status['status'] = "1"
         processing_status["picture1"] = "Nahrávám..."
         processing_status["picture1"] = "Nahrávám..."
     similarities = []
@@ -168,6 +169,9 @@ def process():
         'similarities2':similarities2
     }
 
+    with status_lock:
+        processing_status['status'] = "0"
+
     return jsonify(data) 
 
 
@@ -176,7 +180,6 @@ def getStatus():
     with status_lock:
         status_copy = processing_status.copy()
     return jsonify(status_copy)
-
 
 
 
@@ -242,7 +245,7 @@ def find_similar_images(new_image_path):
     similarities = sorted(similarities, key=lambda x: x[0], reverse=True)
 
     with status_lock:
-        processing_status[f"picture{image_index}"] = "Dokončeno"
+        processing_status[f"picture{image_index}"] = ""
 
     return similarities
 

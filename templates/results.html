@@ -37,6 +37,11 @@
             flex-wrap: wrap;
             align-items: horizontal;
         }
+        .loader{
+            max-width: 90%;
+            align-items: horizontal;
+        }
+
         .images img {
             max-width: 100%;
             max-height: 250px; /* Zvětšení velikosti obrázků */
@@ -82,7 +87,7 @@
             $('.uploaded-images').empty();
             $('.container').empty();
             clearInterval(statusInterval); // Stop the interval
-                $('.processing-status').hide(); // Hide the status container
+                $('.processing-status, .loader').hide(); // Hide the status container
                 $('.buttons, .results-container, .uploaded-images, h2').show();
 
             // Display uploaded images
@@ -177,6 +182,9 @@ var statusInterval = setInterval(updateProcessingStatus, 500); // Check the stat
 <div class="buttons">
     <a href="/"><button>Uložit podtácek</button></a>
     <a href="/delete"><button>Vymazat podtácek</button></a>
+</div>
+<div class="loader">
+    <div class="loader"><img src="../static/loadindanimation.gif"></div>
 </div>
     <div class="uploaded-images">
         <h2>Nově nahraný podtácek</h2>

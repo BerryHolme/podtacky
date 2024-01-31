@@ -74,6 +74,31 @@
         updateProcessingStatus();
     });
         </script>
+        <script>
+            function updateStatus() {
+                $.ajax({
+                    url: "/getStatus",
+                    type: "GET",
+                    success: function (data) {
+                        if (data.status === "0") {
+                            $("input[type=submit]").prop("disabled", false);
+                            $("#status").text("Stav: Prázdný");
+                        } else {
+                            $("input[type=submit]").prop("disabled", true);
+                            $("#status").text("Stav: Zpracovává se (" + data.picture1 + ", " + data.picture2 + ")");
+                        }
+                    },
+                    error: function () {
+                        alert("Chyba při získávání stavu");
+                    }
+                });
+            }
+    
+            $(document).ready(function () {
+                updateStatus();
+                setInterval(updateStatus, 1000); // Aktualizace každou vteřinu
+            });
+        </script>
 </head>
 <body>
 <div class="container">
@@ -87,6 +112,7 @@
         <input type="submit" value="Nahrát">
     </form><br>
     <div class="text"></div>
+    <div id="status"></div>
 </div>
 </body>
 </html>
