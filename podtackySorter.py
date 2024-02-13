@@ -126,6 +126,18 @@ def process():
         with open(file_path, 'wb') as f:
             f.write(output_image)
 
+        # Detekce tvaru
+        #image_with_no_bg = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+        #alpha_channel = image_with_no_bg[:,:,3]  # Alfa kanál
+        #_, binary_alpha = cv2.threshold(alpha_channel, 0, 255, cv2.THRESH_BINARY)
+        #contours, _ = cv2.findContours(binary_alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        shape = detect_shape(file_path)
+        
+        # Uložení informace o tvaru
+        shape_file_path = os.path.join(next_folder, f'{index}.shape')
+        with open(shape_file_path, 'w') as shape_file:
+            shape_file.write(shape)
+
         return file_path, image_to_base64(file_path)
 
     uploaded_files_paths = []
@@ -184,6 +196,17 @@ def getStatus():
 
 
 def calculate_similarity(hist1, file_path):
+    shapefile = os.path.splitext(file_path)[0] + '.shape'
+
+    if os.path.exists(shapefile):
+        shape = os.path.splitext(file_path)[0] + '.shape'
+    else:
+        shape = detect_shape(file_path)
+        # Uložení informace o tvaru
+        new_shapefile = os.path.splitext(file_path)[0] + '.shape'
+        with open(new_shapefile, 'w') as shape_file:
+            shape_file.write(shape)
+
     # Check if the histogram file for the second image exists
     hist_file = os.path.splitext(file_path)[0] + '.hist.npy'
     
@@ -207,6 +230,7 @@ def calculate_similarity(hist1, file_path):
     # Calculate the cosine similarity
     similarity = cosine_similarity([hist1], [hist2])
     return similarity[0][0]
+
 
 
 def find_similar_images(new_image_path):
@@ -271,6 +295,35 @@ def image_to_base64_resized(image_path, scale_factor=0.2):
         file.write(base64_data)
 
     return base64_data
+
+def detect_shape(image_path):
+    if not isinstance(image_path, str) or not os.path.exists(image_path):
+        print("image_path must be a valid string path to an image file")
+        return "Unknown"
+    # Načtení obrázku
+    image = cv2.imread(image_path, cv2.IMREAD_UNCHANGED)
+    # Získání alfa kanálu
+    alpha_channel = image[:, :, 3]
+    # Prahování alfa kanálu pro získání masky tvaru
+    _, mask = cv2.threshold(alpha_channel, 0, 255, cv2.THRESH_BINARY)
+    # Hledání kontur v masce
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+
+    for contour in contours:
+        # Aproximace kontury
+        approx = cv2.approxPolyDP(contour, 0.01 * cv2.arcLength(contour, True), True)
+        area = cv2.contourArea(contour)
+        bounding_rect = cv2.boundingRect(contour)
+        bounding_rect_area = bounding_rect[2] * bounding_rect[3]
+        area_ratio = area / bounding_rect_area
+
+        # Určení tvaru na základě poměru oblasti
+        if len(approx) >= 4 and area_ratio > 0.8:
+            return "Square"
+        elif len(approx) < 10 and area_ratio > 0.8:
+            return "Circle"
+    return "Unknown"
+
 
 
 
