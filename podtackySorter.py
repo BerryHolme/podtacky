@@ -130,12 +130,12 @@ def process():
         # alpha_channel = image_with_no_bg[:,:,3]  # Alfa kanál
         # _, binary_alpha = cv2.threshold(alpha_channel, 0, 255, cv2.THRESH_BINARY)
         # contours, _ = cv2.findContours(binary_alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        shape = detect_shape(file_path)
+        #shape = detect_shape(file_path)
         
         # Uložení informace o tvaru
-        shape_file_path = os.path.join(next_folder, f'{index}.shape')
-        with open(shape_file_path, 'w') as shape_file:
-            shape_file.write(shape)
+        #shape_file_path = os.path.join(next_folder, f'{index}.shape')
+        #with open(shape_file_path, 'w') as shape_file:
+        #    shape_file.write(shape)
 
         return file_path, image_to_base64(file_path)
 
@@ -271,19 +271,22 @@ import os
 def image_to_base64_resized(image_path, scale_factor=0.2):
     base64_file = os.path.splitext(image_path)[0] + '.base64'
 
-    # Kontrola, zda již existuje base64 soubor
+    # Check if the base64 file already exists
     if os.path.exists(base64_file):
         with open(base64_file, 'r') as file:
             return file.read()
 
-    # Zmenšení a konverze obrázku, pokud base64 soubor neexistuje
-    image = Image.open(image_path)
-    resized_image = image.resize((int(image.width * scale_factor), int(image.height * scale_factor)), Image.ANTIALIAS)
-    buffered = io.BytesIO()
-    resized_image.save(buffered, format="PNG")
-    base64_data = base64.b64encode(buffered.getvalue()).decode('utf-8')
+    # Open and resize the image, if base64 file does not exist
+    with Image.open(image_path) as image:
+        resized_image = image.resize(
+            (int(image.width * scale_factor), int(image.height * scale_factor)),
+            Image.LANCZOS  # Updated filter
+        )
+        buffered = io.BytesIO()
+        resized_image.save(buffered, format="PNG")
+        base64_data = base64.b64encode(buffered.getvalue()).decode('utf-8')
 
-    # Uložení base64 reprezentace do souboru
+    # Save the base64 representation to a file
     with open(base64_file, 'w') as file:
         file.write(base64_data)
 
