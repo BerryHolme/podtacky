@@ -3,3 +3,4 @@ flask_session
 temp
 dataset
 models
+library.db

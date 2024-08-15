@@ -1,6 +1,6 @@
 from flask import Flask, request, render_template_string, send_from_directory, session, redirect, url_for
-from flask import render_template 
-from flask_session import Session 
+from flask import render_template
+from flask_session import Session
 import os
 from rembg import remove
 import cv2
@@ -18,10 +18,13 @@ from werkzeug.datastructures import FileStorage
 import asyncio
 from flask import jsonify
 from threading import Lock
+import socket
+import qrcode
+import tempfile
+import webbrowser
 
-processing_status = {"status":"0", "picture1": "Nahrávání...", "picture2": "Nahrávání..."}
+processing_status = {"status": "0", "picture1": "Nahrávání...", "picture2": "Nahrávání..."}
 status_lock = Lock()
-
 
 UPLOAD_FOLDER = 'Library'
 TEMP_FOLDER = 'temp'
@@ -31,9 +34,7 @@ app = Flask(__name__)
 app.secret_key = 'tajný_klíč'
 app.config["SESSION_PERMANENT"] = False
 app.config["SESSION_TYPE"] = "filesystem"
-Session(app) 
-
-
+Session(app)
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
@@ -74,10 +75,8 @@ def upload_file():
             file1.save(os.path.join(TEMP_FOLDER, '1' + os.path.splitext(file1.filename)[1]))
             file2.save(os.path.join(TEMP_FOLDER, '2' + os.path.splitext(file2.filename)[1]))
 
-
         return redirect(url_for('process_page'))
 
-    
     return render_template('index.html')
 
 @app.route('/process_page', methods=['GET'])
@@ -127,10 +126,10 @@ def process():
             f.write(output_image)
 
         # Detekce tvaru
-        #image_with_no_bg = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
-        #alpha_channel = image_with_no_bg[:,:,3]  # Alfa kanál
-        #_, binary_alpha = cv2.threshold(alpha_channel, 0, 255, cv2.THRESH_BINARY)
-        #contours, _ = cv2.findContours(binary_alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        # image_with_no_bg = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+        # alpha_channel = image_with_no_bg[:,:,3]  # Alfa kanál
+        # _, binary_alpha = cv2.threshold(alpha_channel, 0, 255, cv2.THRESH_BINARY)
+        # contours, _ = cv2.findContours(binary_alpha, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         shape = detect_shape(file_path)
         
         # Uložení informace o tvaru
@@ -142,7 +141,6 @@ def process():
 
     uploaded_files_paths = []
     uploaded_files_base64 = []
-
 
     with ThreadPoolExecutor(max_workers=2) as executor:
         future1 = executor.submit(process_image, file1, 1)
@@ -161,16 +159,12 @@ def process():
         similarities = future1.result()
         similarities2 = future2.result()
 
-
     print("Dokončeno")
-
-
 
     message = 'Soubory byly úspěšně nahrány'
     if similarities:
         message += ' a nalezeny podobné obrázky'
 
-        
     with status_lock:
         processing_status["picture1"] = "Posílám..."
         processing_status["picture2"] = "Posílám..."
@@ -178,13 +172,13 @@ def process():
     data = {
         'uploaded_images': uploaded_files_base64,
         'similarities': similarities,
-        'similarities2':similarities2
+        'similarities2': similarities2
     }
 
     with status_lock:
         processing_status['status'] = "0"
 
-    return jsonify(data) 
+    return jsonify(data)
 
 
 @app.route('/getStatus', methods=['GET'])
@@ -192,7 +186,6 @@ def getStatus():
     with status_lock:
         status_copy = processing_status.copy()
     return jsonify(status_copy)
-
 
 
 def calculate_similarity(hist1, file_path):
@@ -209,7 +202,7 @@ def calculate_similarity(hist1, file_path):
 
     # Check if the histogram file for the second image exists
     hist_file = os.path.splitext(file_path)[0] + '.hist.npy'
-    
+
     if os.path.exists(hist_file):
         # Load the histogram from the file
         hist2 = np.load(hist_file)
@@ -232,7 +225,6 @@ def calculate_similarity(hist1, file_path):
     return similarity[0][0]
 
 
-
 def find_similar_images(new_image_path):
     global processing_status
     image_index = os.path.basename(new_image_path).replace('.png', '')
@@ -248,7 +240,7 @@ def find_similar_images(new_image_path):
     gray1 = cv2.cvtColor(new_image_data, cv2.COLOR_BGR2GRAY)
     hist1 = cv2.calcHist([gray1], [0], None, [256], [0, 256])
     hist1 = cv2.normalize(hist1, hist1).flatten()
-    
+
     for file_path in all_files:
         if file_path == new_image_path or os.path.dirname(file_path) == new_image_folder:
             continue
@@ -258,13 +250,13 @@ def find_similar_images(new_image_path):
         with status_lock:
             processing_status[f"picture{image_index}"] = f"Zpracovávám {processed_files}/{total_files} souborů ({progress:.2f}%)"
 
-        #existing_image_data = cv2.imread(file_path) 
+        # existing_image_data = cv2.imread(file_path)
 
         similarity = calculate_similarity(hist1, file_path)
         if similarity > 0.999:
             relative_path = os.path.relpath(file_path, UPLOAD_FOLDER)
             image_base64 = image_to_base64_resized(file_path)
-            similarities.append((similarity*100, file_path, image_base64))
+            similarities.append((similarity * 100, file_path, image_base64))
 
     similarities = sorted(similarities, key=lambda x: x[0], reverse=True)
 
@@ -272,6 +264,7 @@ def find_similar_images(new_image_path):
         processing_status[f"picture{image_index}"] = ""
 
     return similarities
+
 
 import os
 
@@ -325,10 +318,6 @@ def detect_shape(image_path):
     return "Unknown"
 
 
-
-
-
-
 @app.route('/delete')
 def delete_latest_uploaded_images():
     max_folder_num = -1
@@ -356,12 +345,52 @@ def delete_latest_uploaded_images():
     return redirect(url_for('upload_file', message=message))
 
 
-
-
 @app.route('/static/<path:path>')
 def static_dir(path):
     return send_from_directory('Library', path)
 
 
+def get_local_ip():
+    """Získání IP adresy místního počítače."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    s.settimeout(0)
+    try:
+        # Ověření IP pomocí připojení k neexistující adrese
+        s.connect(('10.254.254.254', 1))
+        IP = s.getsockname()[0]
+    except Exception:
+        IP = '127.0.0.1'
+    finally:
+        s.close()
+    return IP
+
+
+def generate_qr_code(url):
+    """Generování QR kódu pro danou URL a zobrazení."""
+    qr = qrcode.QRCode(
+        version=1,
+        error_correction=qrcode.constants.ERROR_CORRECT_L,
+        box_size=10,
+        border=4,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+
+    # Generování obrázku QR kódu
+    img = qr.make_image(fill='black', back_color='white')
+
+    # Uložení QR kódu do dočasného souboru a otevření
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as tmp:
+        img.save(tmp.name)
+        webbrowser.open(f"file://{tmp.name}")
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000)
+    host_ip = get_local_ip()
+    port = 8000
+    url = f"http://{host_ip}:{port}"
+
+    print(f"Running on {url}")
+    generate_qr_code(url)
+
+    app.run(host='0.0.0.0', port=port)
